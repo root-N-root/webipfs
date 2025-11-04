@@ -26,6 +26,9 @@ go.work.sum
 
 # env file
 .env
+files/*
+!files/.gitkeep
+webipfs-store.json
 
 # Editor/IDE
 # .idea/

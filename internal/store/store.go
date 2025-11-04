@@ -1,13 +1,39 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
+	"log"
 	"os"
 
 	"github.com/root-N-root/webipfs/types"
 )
 
 var storeFilePath = types.STORE_FILE_PATH
+
+func Run(ctx context.Context, con *types.Connector) {
+	for {
+		select {
+		case fu := <-con.FileUpStoreChan:
+			err := updateInStore(fu)
+			if err != nil {
+				log.Println("store.run:", err)
+			}
+		case <-ctx.Done():
+			break
+		}
+	}
+}
+
+func updateInStore(fu types.FileUpdate) error {
+	store, err := load()
+	if err != nil {
+		return err
+	}
+	store.UpdateFile(fu)
+	return save(store)
+
+}
 
 func InitStore() error {
 	var err error
@@ -20,17 +46,17 @@ func InitStore() error {
 		}
 	}
 	if !needFill {
-		if _, err = Load(); err != nil {
+		if _, err = load(); err != nil {
 			needFill = true
 		}
 	}
 	if needFill {
-		return Save(types.NewStore())
+		return save(types.NewStore())
 	}
 	return err
 }
 
-func Load() (types.Store, error) {
+func load() (types.Store, error) {
 	var store types.Store
 	var err error
 	if _, err = os.Stat(storeFilePath); err != nil {
@@ -47,7 +73,7 @@ func Load() (types.Store, error) {
 	return store, err
 }
 
-func Save(store types.Store) error {
+func save(store types.Store) error {
 	data, err := json.MarshalIndent(store, "", "\t")
 	if err != nil {
 		return err

@@ -2,11 +2,25 @@ package types
 
 const PORT = 3000
 const STORE_FILE_PATH = "./webipfs-store.json"
+const FILES_DIR = "./files"
 
-func NewChans() (chan FileUpdate, chan string) {
-	fuc := make(chan FileUpdate)
-	msgc := make(chan string)
-	return fuc, msgc
+type Connector struct {
+	FileUpHttpChan  chan FileUpdate
+	FileUpStoreChan chan FileUpdate
+	MsgChan         chan string
+}
+
+func NewConnector() *Connector {
+	return &Connector{
+		FileUpHttpChan:  make(chan FileUpdate),
+		FileUpStoreChan: make(chan FileUpdate),
+		MsgChan:         make(chan string),
+	}
+}
+
+func (c *Connector) SendFileUp(fu FileUpdate) {
+	c.FileUpHttpChan <- fu
+	c.FileUpStoreChan <- fu
 }
 
 type Store struct {
@@ -58,6 +72,7 @@ type FileUpdate struct {
 	Progress float64    `json:"progress"`
 	Type     string     `json:"type"`
 	Status   FileStatus `json:"file_status"`
+	Path     string     `json:"path"`
 }
 
 func NewFileUpdate(fuWiths ...FUWith) FileUpdate {
@@ -66,6 +81,12 @@ func NewFileUpdate(fuWiths ...FUWith) FileUpdate {
 		fuw(fu)
 	}
 	return *fu
+}
+
+func FuwPath(path string) FUWith {
+	return func(fu *FileUpdate) {
+		fu.Path = path
+	}
 }
 
 func FuwStatus(status FileStatus) FUWith {
