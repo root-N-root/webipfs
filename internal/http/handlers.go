@@ -9,12 +9,11 @@ import (
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/root-N-root/webipfs/internal/ipfs"
 	"github.com/root-N-root/webipfs/types"
 )
 
 // TODO: chan
-func Run(ctx context.Context, con *types.Connector) {
+func Run(ctx context.Context, con *types.Connector, client types.FileService) {
 	app := fiber.New()
 	//GRACEFULL shutdown
 	go func() {
@@ -37,14 +36,14 @@ func Run(ctx context.Context, con *types.Connector) {
 			log.Println("Shutdown timeout reached, forcing exit")
 		}
 	}()
-	app.Post("/upload", appHandlerUpload(con))
+	app.Post("/upload", appHandlerUpload(con, client))
 	app.Use("/ws", handlerWebsocket)
 	app.Get("/ws", websocket.New(websocketConn(con)))
 	app.Static("/", "./public")
 	log.Fatal(app.Listen(fmt.Sprintf(":%d", types.PORT)))
 }
 
-func appHandlerUpload(con *types.Connector) func(c *fiber.Ctx) error {
+func appHandlerUpload(con *types.Connector, client types.FileService) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		file, err := c.FormFile("file")
 		if err != nil {
@@ -57,7 +56,10 @@ func appHandlerUpload(con *types.Connector) func(c *fiber.Ctx) error {
 		}
 
 		// con.FileChan <- types.File{Path: filePath, Name: file.Filename}
-		fu := ipfs.CreateFile(filePath, file.Filename)
+		fu, err := client.AddFile(filePath, file.Filename)
+		if err != nil {
+			return err
+		}
 		con.SendFileUp(fu)
 
 		return nil

@@ -4,6 +4,10 @@ const PORT = 3000
 const STORE_FILE_PATH = "./webipfs-store.json"
 const FILES_DIR = "./files"
 
+type FileService interface {
+	AddFile(string, string) (FileUpdate, error)
+}
+
 type Connector struct {
 	FileUpHttpChan  chan FileUpdate
 	FileUpStoreChan chan FileUpdate
