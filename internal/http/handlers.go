@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
+	"github.com/ipfs/go-cid"
 
 	"github.com/root-N-root/webipfs/types"
 )
@@ -37,10 +39,51 @@ func Run(ctx context.Context, con *types.Connector, client types.FileService) {
 		}
 	}()
 	app.Post("/upload", appHandlerUpload(con, client))
+	app.Post("/download", appHandlerDownload(con, client))
 	app.Use("/ws", handlerWebsocket)
 	app.Get("/ws", websocket.New(websocketConn(con)))
 	app.Static("/", "./public")
 	log.Fatal(app.Listen(fmt.Sprintf(":%d", types.PORT)))
+}
+
+type DownloadRequest struct {
+	Link string `json:"link"`
+}
+
+func appHandlerDownload(con *types.Connector, client types.FileService) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		var req DownloadRequest
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(400).SendString("Invalid request body: " + err.Error())
+		}
+
+		// Извлекаем CID из IPFS-ссылки или используем напрямую, если это просто CID
+		cidStr := req.Link
+		if strings.HasPrefix(req.Link, "ipfs://") {
+			cidStr = strings.TrimPrefix(req.Link, "ipfs://")
+			// Удаляем возможный слэш в начале
+			cidStr = strings.TrimPrefix(cidStr, "/")
+		}
+
+		// Проверяем, что строка - это валидный CID
+		if _, err := cid.Decode(cidStr); err != nil {
+			return c.Status(400).SendString("Invalid CID: " + err.Error())
+		}
+
+		// Вызываем метод IPFS-клиента для получения файла по CID
+		fileUpdate, err := client.GetFile(c.Context(), cidStr)
+		if err != nil {
+			return c.Status(500).SendString("Error getting file from IPFS: " + err.Error())
+		}
+
+		// Отправляем информацию о файле через соединение
+		con.SendFileUp(fileUpdate)
+
+		return c.Status(200).JSON(fiber.Map{
+			"message": "Download started",
+			"file":    fileUpdate,
+		})
+	}
 }
 
 func appHandlerUpload(con *types.Connector, client types.FileService) func(c *fiber.Ctx) error {

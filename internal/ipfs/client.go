@@ -41,9 +41,6 @@ func NewClient(ctx context.Context) (*Client, error) {
 	cfg.Addresses.Swarm = []string{
 		"/ip4/0.0.0.0/tcp/0",
 		"/ip6/::/tcp/0",
-		"/ip4/0.0.0.0/udp/0/quic",
-		"/ip4/0.0.0.0/udp/0/quic-v1",
-		"/ip4/0.0.0.0/udp/0/quic-v1/webtransport",
 	}
 	cfg.Swarm.RelayClient.Enabled = config.True
 	cfg.Swarm.RelayService.Enabled = config.True
